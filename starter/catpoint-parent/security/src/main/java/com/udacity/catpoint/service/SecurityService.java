@@ -5,6 +5,7 @@ import com.udacity.catpoint.data.AlarmStatus;
 import com.udacity.catpoint.data.ArmingStatus;
 import com.udacity.catpoint.data.SecurityRepository;
 import com.udacity.catpoint.data.Sensor;
+import com.udacity.catpoint.image.ImageService;
 
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
@@ -19,11 +20,11 @@ import java.util.Set;
  */
 public class SecurityService {
 
-    private FakeImageService imageService;
+    private ImageService imageService;
     private SecurityRepository securityRepository;
     private Set<StatusListener> statusListeners = new HashSet<>();
 
-    public SecurityService(SecurityRepository securityRepository, FakeImageService imageService) {
+    public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
         this.securityRepository = securityRepository;
         this.imageService = imageService;
     }
@@ -36,6 +37,13 @@ public class SecurityService {
     public void setArmingStatus(ArmingStatus armingStatus) {
         if(armingStatus == ArmingStatus.DISARMED) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
+        } else {
+            // System is armed (ARMED_HOME or ARMED_AWAY)
+            // Reset all sensors to inactive
+            for (Sensor sensor : getSensors()) {
+                sensor.setActive(false);
+                securityRepository.updateSensor(sensor);
+            }
         }
         securityRepository.setArmingStatus(armingStatus);
     }
@@ -48,8 +56,11 @@ public class SecurityService {
     private void catDetected(Boolean cat) {
         if(cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
             setAlarmStatus(AlarmStatus.ALARM);
-        } else {
-            setAlarmStatus(AlarmStatus.NO_ALARM);
+        } else if (!cat) {
+            boolean allInactive = securityRepository.getSensors().stream().noneMatch(Sensor::getActive);
+            if (allInactive) {
+                setAlarmStatus(AlarmStatus.NO_ALARM);
+            }
         }
 
         statusListeners.forEach(sl -> sl.catDetected(cat));
@@ -86,6 +97,7 @@ public class SecurityService {
         switch(securityRepository.getAlarmStatus()) {
             case NO_ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
             case PENDING_ALARM -> setAlarmStatus(AlarmStatus.ALARM);
+            default -> {}
         }
     }
 
@@ -93,9 +105,11 @@ public class SecurityService {
      * Internal method for updating the alarm status when a sensor has been deactivated
      */
     private void handleSensorDeactivated() {
-        switch(securityRepository.getAlarmStatus()) {
-            case PENDING_ALARM -> setAlarmStatus(AlarmStatus.NO_ALARM);
-            case ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        if (securityRepository.getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
+            boolean allInactive = securityRepository.getSensors().stream().noneMatch(Sensor::getActive);
+            if (allInactive) {
+                setAlarmStatus(AlarmStatus.NO_ALARM);
+            }
         }
     }
 
@@ -105,13 +119,24 @@ public class SecurityService {
      * @param active
      */
     public void changeSensorActivationStatus(Sensor sensor, Boolean active) {
-        if(!sensor.getActive() && active) {
-            handleSensorActivated();
-        } else if (sensor.getActive() && !active) {
-            handleSensorDeactivated();
-        }
+        boolean wasActive = sensor.getActive();
         sensor.setActive(active);
         securityRepository.updateSensor(sensor);
+
+        if (securityRepository.getAlarmStatus() == AlarmStatus.ALARM) {
+            // If alarm is active, change in sensor state should not affect the alarm state.
+            return;
+        }
+
+        if (wasActive && active) {
+            if (securityRepository.getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
+                setAlarmStatus(AlarmStatus.ALARM);
+            }
+        } else if (!wasActive && active) {
+            handleSensorActivated();
+        } else if (wasActive && !active) {
+            handleSensorDeactivated();
+        }
     }
 
     /**
