@@ -30,9 +30,22 @@ public class AwsImageService implements ImageService {
     //aws recommendation is to maintain only a single instance of client objects
     private static RekognitionClient rekognitionClient;
 
+    private static synchronized void initClient(AwsCredentials credentials, String region) {
+        if (rekognitionClient == null) {
+            rekognitionClient = RekognitionClient.builder()
+                    .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                    .region(Region.of(region))
+                    .build();
+        }
+    }
+
     public AwsImageService() {
         Properties props = new Properties();
         try (InputStream is = getClass().getClassLoader().getResourceAsStream("config.properties")) {
+            if (is == null) {
+                log.error("Unable to initialize AWS Rekognition, config.properties file not found on classpath");
+                return;
+            }
             props.load(is);
         } catch (IOException ioe ) {
             log.error("Unable to initialize AWS Rekognition, no properties file found", ioe);
@@ -43,11 +56,13 @@ public class AwsImageService implements ImageService {
         String awsSecret = props.getProperty("aws.secret");
         String awsRegion = props.getProperty("aws.region");
 
+        if (awsId == null || awsSecret == null || awsRegion == null) {
+            log.error("Unable to initialize AWS Rekognition, missing required keys in config.properties");
+            return;
+        }
+
         AwsCredentials awsCredentials = AwsBasicCredentials.create(awsId, awsSecret);
-        rekognitionClient = RekognitionClient.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .region(Region.of(awsRegion))
-                .build();
+        initClient(awsCredentials, awsRegion);
     }
 
     /**
@@ -58,6 +73,11 @@ public class AwsImageService implements ImageService {
      */
     @Override
     public boolean imageContainsCat(BufferedImage image, float confidenceThreshold) {
+        if (rekognitionClient == null) {
+            log.warn("AWS Rekognition client is not initialized. Cannot scan image. Returning false.");
+            return false;
+        }
+
         Image awsImage = null;
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             ImageIO.write(image, "jpg", os);
