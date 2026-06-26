@@ -20,11 +20,5 @@
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>rekognition</artifactId>
     </dependency>
-
-    <!-- SLF4J API -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
   </dependencies>
 </project>

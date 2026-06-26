@@ -107,6 +107,41 @@
     </dependencies>
   </dependencyManagement>
 
+  <dependencies>
+    <!-- SLF4J API -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <!-- Testing Dependencies -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
   <build>
     <pluginManagement>
       <plugins>
@@ -128,7 +163,19 @@
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.2</version>
+          <version>3.5.0</version>
+          <configuration>
+            <argLine>@{argLine} --add-opens com.udacity.catpoint.security/com.udacity.catpoint.service=ALL-UNNAMED --add-opens com.udacity.catpoint.security/com.udacity.catpoint.data=ALL-UNNAMED --add-opens com.udacity.catpoint.security/com.udacity.catpoint.application=ALL-UNNAMED --add-opens com.udacity.catpoint.image/com.udacity.catpoint.image=ALL-UNNAMED</argLine>
+          </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>3.6.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.11</version>
         </plugin>
         <plugin>
           <artifactId>maven-jar-plugin</artifactId>
@@ -150,9 +197,23 @@
             <xmlOutput>false</xmlOutput>
             <htmlOutput>true</htmlOutput>
             <outputDirectory>${project.build.directory}/site</outputDirectory>
+            <threshold>High</threshold>
           </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
   </build>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.10.2.0</version>
+        <configuration>
+          <threshold>High</threshold>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>
